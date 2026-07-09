@@ -1,0 +1,8 @@
+Flask==2.3.2
+bcrypt==4.0.1
+firebase-admin
+gunicorn
+python-dateutil
+paramiko
+requests
+aiogram

@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+vpn_bot.db
+*.log
+.env
+firebase-key.json
