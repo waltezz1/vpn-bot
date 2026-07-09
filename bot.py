@@ -130,8 +130,8 @@ def get_prices_from_firebase():
 def main_keyboard():
     kb = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text='🛒 Купить подписку'), KeyboardButton(text='📊 Мой статус')],
-            [KeyboardButton(text='📞 Поддержка'), KeyboardButton(text='ℹ️ Инструкция'), KeyboardButton(text='🔄 Продлить')]
+            [KeyboardButton(text='Купить подписку'), KeyboardButton(text='Мой статус')],
+            [KeyboardButton(text='Поддержка'), KeyboardButton(text='Инструкция'), KeyboardButton(text='Продлить')]
         ],
         resize_keyboard=True
     )
@@ -163,13 +163,13 @@ async def start(message: types.Message):
     add_user(user_id, username)
     set_support_mode(user_id, False)
     await message.answer(
-        f"👋 Привет, {username}!\n\n"
+        f"Привет, {username}!\n\n"
         "Добро пожаловать в VPN-сервис. Здесь вы можете купить подписку на безопасный и быстрый VPN.\n"
         "Используйте кнопки ниже для навигации.",
         reply_markup=main_keyboard()
     )
 
-@dp.message(lambda message: message.text == '🛒 Купить подписку')
+@dp.message(lambda message: message.text == 'Купить подписку')
 async def buy_subscription(message: types.Message):
     set_support_mode(message.from_user.id, False)
     await message.answer(
@@ -270,7 +270,7 @@ async def process_successful_payment(message: types.Message):
     else:
         await message.answer("Ошибка: неверный формат платежа.")
 
-@dp.message(lambda message: message.text == '📊 Мой статус')
+@dp.message(lambda message: message.text == 'Мой статус')
 async def my_status(message: types.Message):
     set_support_mode(message.from_user.id, False)
     user_id = message.from_user.id
@@ -289,19 +289,19 @@ async def my_status(message: types.Message):
         else:
             await message.answer(
                 "❌ Ваша подписка истекла.\n"
-                "Чтобы продлить, нажмите '🔄 Продлить'."
+                "Чтобы продлить, нажмите 'Продлить'."
             )
     else:
         await message.answer(
             "❌ У вас нет активной подписки.\n"
-            "Нажмите '🛒 Купить подписку', чтобы выбрать тариф."
+            "Нажмите 'Купить подписку', чтобы выбрать тариф."
         )
 
 @dp.message(lambda message: message.text == 'ℹ️ Инструкция')
 async def instruction(message: types.Message):
     set_support_mode(message.from_user.id, False)
     await message.answer(
-        "📱 **Инструкция по подключению:**\n\n"
+        "Инструкция по подключению:\n\n"
         "1. Скачайте приложение для вашего устройства:\n"
         "   - Android: V2RayTun (Google Play) или Happ\n"
         "   - iOS: Happ, Shadowrocket\n"
@@ -313,7 +313,7 @@ async def instruction(message: types.Message):
         "Если возникнут вопросы — пишите в поддержку."
     )
 
-@dp.message(lambda message: message.text == '📞 Поддержка')
+@dp.message(lambda message: message.text == 'Поддержка')
 async def support_start(message: types.Message):
     user_id = message.from_user.id
     set_support_mode(user_id, True)
@@ -323,7 +323,7 @@ async def support_start(message: types.Message):
         "Чтобы выйти из режима поддержки, нажмите /start."
     )
 
-@dp.message(lambda message: message.text == '🔄 Продлить')
+@dp.message(lambda message: message.text == 'Продлить')
 async def renew(message: types.Message):
     set_support_mode(message.from_user.id, False)
     await buy_subscription(message)
@@ -362,7 +362,7 @@ async def admin_panel(message: types.Message):
     if not users:
         await message.answer("Нет пользователей.")
         return
-    text = "📋 **Список пользователей:**\n\n"
+    text = "Список пользователей:\n\n"
     for user_id, username, tariff, expires_at, is_active in users:
         status = "✅ Активен" if is_active else "❌ Неактивен"
         text += f"ID: {user_id} | @{username} | {tariff or 'без тарифа'} | {expires_at or '—'} | {status}\n"
