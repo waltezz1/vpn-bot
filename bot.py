@@ -14,10 +14,10 @@ from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 from flask import Flask
 
-# ---- Настройки (берём из переменных окружения) ----
-API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8746897763:AAENV1b_IJpARUmge3xT6o2GZ-pEko53TqY')
-ADMIN_ID = int(os.environ.get('ADMIN_ID', 6873691042))  # ЗАМЕНИТЕ НА СВОЙ ID
-PROVIDER_TOKEN = os.environ.get('PROVIDER_TOKEN', '390540012:LIVE:99276')  # Токен от @BotFather (для платежей)
+# ---- Настройки (берём из переменных окружения или новые значения) ----
+API_TOKEN = '8746897763:AAENV1b_IJpARUmge3xT6o2GZ-pEko53TqY'
+ADMIN_ID = int(os.environ.get('ADMIN_ID', 6873691042))
+PROVIDER_TOKEN = os.environ.get('PROVIDER_TOKEN', '390540012:LIVE:99276')
 
 # ---- Инициализация Firebase ----
 firebase_creds_json = os.environ.get('FIREBASE_CREDENTIALS')
@@ -25,7 +25,6 @@ if firebase_creds_json:
     cred_dict = json.loads(firebase_creds_json)
     cred = credentials.Certificate(cred_dict)
 else:
-    # Для локальной разработки – файл должен лежать рядом
     cred = credentials.Certificate("firebase-key.json")
 
 firebase_admin.initialize_app(cred)
@@ -126,7 +125,7 @@ def get_prices_from_firebase():
     yearly_price = float(yearly.to_dict().get('value', '5000')) if yearly.exists else 5000.0
     return monthly_price, yearly_price
 
-# ---- Клавиатуры ----
+# ---- Клавиатуры (без смайлов) ----
 def main_keyboard():
     kb = ReplyKeyboardMarkup(
         keyboard=[
@@ -148,7 +147,7 @@ def tariff_keyboard():
         InlineKeyboardButton(text=f'6 месяцев – {int(monthly*6)} ₽', callback_data='tariff_6months'),
         InlineKeyboardButton(text=f'1 год – {int(yearly)} ₽', callback_data='tariff_year')
     )
-    builder.row(InlineKeyboardButton(text='🔙 Назад', callback_data='back_to_main'))
+    builder.row(InlineKeyboardButton(text='Назад', callback_data='back_to_main'))
     return builder.as_markup()
 
 # ---- Инициализация бота ----
@@ -163,8 +162,8 @@ async def start(message: types.Message):
     add_user(user_id, username)
     set_support_mode(user_id, False)
     await message.answer(
-        f"Привет, {username}!\n\n"
-        "Добро пожаловать в VPN-сервис. Здесь вы можете купить подписку на безопасный и быстрый VPN.\n"
+        f"Здравствуйте, {username}!\n\n"
+        "Добро пожаловать в VPN-сервис. Здесь вы можете приобрести подписку на безопасный и быстрый VPN.\n"
         "Используйте кнопки ниже для навигации.",
         reply_markup=main_keyboard()
     )
@@ -198,7 +197,6 @@ async def process_tariff(callback: types.CallbackQuery):
     else:
         amount = monthly_price * months
 
-    # Отправляем счёт
     await callback.bot.send_invoice(
         chat_id=user_id,
         title=f"Подписка {tariff_name}",
@@ -260,7 +258,7 @@ async def process_successful_payment(message: types.Message):
             }
             db.collection('transactions').add(transaction_data)
             await message.answer(
-                f"✅ Оплата прошла успешно!\n"
+                f"Оплата прошла успешно!\n"
                 f"Тариф: {tariff_name}\n"
                 f"Действует до: {expires_at}\n"
                 f"Скоро вы получите свой VPN-ключ."
@@ -281,27 +279,27 @@ async def my_status(message: types.Message):
         if expires_at > now:
             days_left = (expires_at - now).days
             await message.answer(
-                f"✅ Ваша подписка активна.\n"
+                f"Ваша подписка активна.\n"
                 f"Тариф: {user[2]}\n"
                 f"Действует до: {expires_at.strftime('%d.%m.%Y')}\n"
                 f"Осталось дней: {days_left}"
             )
         else:
             await message.answer(
-                "❌ Ваша подписка истекла.\n"
+                "Ваша подписка истекла.\n"
                 "Чтобы продлить, нажмите 'Продлить'."
             )
     else:
         await message.answer(
-            "❌ У вас нет активной подписки.\n"
+            "У вас нет активной подписки.\n"
             "Нажмите 'Купить подписку', чтобы выбрать тариф."
         )
 
-@dp.message(lambda message: message.text == 'ℹ️ Инструкция')
+@dp.message(lambda message: message.text == 'Инструкция')
 async def instruction(message: types.Message):
     set_support_mode(message.from_user.id, False)
     await message.answer(
-        "Инструкция по подключению:\n\n"
+        "ИНСТРУКЦИЯ ПО ПОДКЛЮЧЕНИЮ:\n\n"
         "1. Скачайте приложение для вашего устройства:\n"
         "   - Android: V2RayTun (Google Play) или Happ\n"
         "   - iOS: Happ, Shadowrocket\n"
@@ -310,7 +308,7 @@ async def instruction(message: types.Message):
         "2. После оплаты вы получите ссылку-подписку (начинается с vless:// или vmess://).\n"
         "3. Скопируйте её и вставьте в приложение (обычно есть кнопка 'Импорт из буфера').\n"
         "4. Нажмите 'Подключиться' — и вы в безопасном интернете.\n\n"
-        "Если возникнут вопросы — пишите в поддержку."
+        "Если возникнут вопросы, обратитесь в поддержку (кнопка 'Поддержка')."
     )
 
 @dp.message(lambda message: message.text == 'Поддержка')
@@ -318,7 +316,7 @@ async def support_start(message: types.Message):
     user_id = message.from_user.id
     set_support_mode(user_id, True)
     await message.answer(
-        "✉️ Напишите ваше сообщение для администратора.\n"
+        "Напишите ваше сообщение для администратора.\n"
         "После отправки мы свяжемся с вами в ближайшее время.\n"
         "Чтобы выйти из режима поддержки, нажмите /start."
     )
@@ -342,29 +340,29 @@ async def handle_all_messages(message: types.Message):
         }
         db.collection('tickets').add(ticket_data)
         await message.answer(
-            "✅ Ваше сообщение отправлено администратору.\n"
+            "Ваше сообщение отправлено администратору.\n"
             "Ожидайте ответа. Чтобы выйти из режима поддержки, нажмите /start."
         )
         set_support_mode(user_id, False)
     else:
         await message.answer(
             "Используйте кнопки ниже для навигации.\n"
-            "Если хотите написать в поддержку, нажмите кнопку '📞 Поддержка'.",
+            "Если хотите написать в поддержку, нажмите кнопку 'Поддержка'.",
             reply_markup=main_keyboard()
         )
 
 @dp.message(Command('admin'))
 async def admin_panel(message: types.Message):
     if message.from_user.id != ADMIN_ID:
-        await message.answer("⛔ У вас нет доступа.")
+        await message.answer("У вас нет доступа.")
         return
     users = get_all_users()
     if not users:
         await message.answer("Нет пользователей.")
         return
-    text = "Список пользователей:\n\n"
+    text = "СПИСОК ПОЛЬЗОВАТЕЛЕЙ:\n\n"
     for user_id, username, tariff, expires_at, is_active in users:
-        status = "✅ Активен" if is_active else "❌ Неактивен"
+        status = "Активен" if is_active else "Неактивен"
         text += f"ID: {user_id} | @{username} | {tariff or 'без тарифа'} | {expires_at or '—'} | {status}\n"
     await message.answer(text)
 
@@ -382,9 +380,7 @@ def run_flask():
 
 # ---- Запуск бота и веб-сервера параллельно ----
 async def main():
-    # Запускаем Flask в отдельном потоке
     threading.Thread(target=run_flask, daemon=True).start()
-    # Запускаем бота (polling)
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
