@@ -14,12 +14,12 @@ from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 from flask import Flask
 
-# ---- Настройки (берём из переменных окружения или новые значения) ----
+# ---- Настройки ----
 API_TOKEN = '8746897763:AAENV1b_IJpARUmge3xT6o2GZ-pEko53TqY'
 ADMIN_ID = int(os.environ.get('ADMIN_ID', 6873691042))
 PROVIDER_TOKEN = os.environ.get('PROVIDER_TOKEN', '390540012:LIVE:99276')
 
-# ---- Инициализация Firebase ----
+# ---- Firebase ----
 firebase_creds_json = os.environ.get('FIREBASE_CREDENTIALS')
 if firebase_creds_json:
     cred_dict = json.loads(firebase_creds_json)
@@ -30,7 +30,7 @@ else:
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# ---- Локальная SQLite ----
+# ---- SQLite ----
 def init_db():
     conn = sqlite3.connect('vpn_bot.db')
     cur = conn.cursor()
@@ -63,7 +63,6 @@ def init_db():
 
 init_db()
 
-# ---- Функции работы с БД ----
 def get_user(user_id):
     conn = sqlite3.connect('vpn_bot.db')
     cur = conn.cursor()
@@ -117,7 +116,6 @@ def add_payment_record(user_id, amount, tariff):
     conn.commit()
     conn.close()
 
-# ---- Получение цен из Firebase ----
 def get_prices_from_firebase():
     monthly = db.collection('settings').document('monthly_price').get()
     yearly = db.collection('settings').document('yearly_price').get()
@@ -125,7 +123,6 @@ def get_prices_from_firebase():
     yearly_price = float(yearly.to_dict().get('value', '5000')) if yearly.exists else 5000.0
     return monthly_price, yearly_price
 
-# ---- Клавиатуры (без смайлов) ----
 def main_keyboard():
     kb = ReplyKeyboardMarkup(
         keyboard=[
@@ -138,19 +135,20 @@ def main_keyboard():
 
 def tariff_keyboard():
     monthly, yearly = get_prices_from_firebase()
+    monthly = int(monthly)
+    yearly = int(yearly)
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text=f'1 месяц – {int(monthly)} ₽', callback_data='tariff_month'),
-        InlineKeyboardButton(text=f'3 месяца – {int(monthly*3)} ₽', callback_data='tariff_3months')
+        InlineKeyboardButton(text=f'1 месяц – {monthly} ₽', callback_data='tariff_month'),
+        InlineKeyboardButton(text=f'3 месяца – {monthly*3} ₽', callback_data='tariff_3months')
     )
     builder.row(
-        InlineKeyboardButton(text=f'6 месяцев – {int(monthly*6)} ₽', callback_data='tariff_6months'),
-        InlineKeyboardButton(text=f'1 год – {int(yearly)} ₽', callback_data='tariff_year')
+        InlineKeyboardButton(text=f'6 месяцев – {monthly*6} ₽', callback_data='tariff_6months'),
+        InlineKeyboardButton(text=f'1 год – {yearly} ₽', callback_data='tariff_year')
     )
     builder.row(InlineKeyboardButton(text='Назад', callback_data='back_to_main'))
     return builder.as_markup()
 
-# ---- Инициализация бота ----
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
@@ -171,10 +169,7 @@ async def start(message: types.Message):
 @dp.message(lambda message: message.text == 'Купить подписку')
 async def buy_subscription(message: types.Message):
     set_support_mode(message.from_user.id, False)
-    await message.answer(
-        "Выберите подходящий тариф:",
-        reply_markup=tariff_keyboard()
-    )
+    await message.answer("Выберите подходящий тариф:", reply_markup=tariff_keyboard())
 
 @dp.callback_query(lambda c: c.data.startswith('tariff_'))
 async def process_tariff(callback: types.CallbackQuery):
@@ -191,11 +186,21 @@ async def process_tariff(callback: types.CallbackQuery):
     tariff_name, months, days = tariff_map[tariff_key]
     user_id = callback.from_user.id
     username = callback.from_user.username or callback.from_user.first_name
+
     monthly_price, yearly_price = get_prices_from_firebase()
+    monthly_price = int(monthly_price)
+    yearly_price = int(yearly_price)
+
     if tariff_key == 'tariff_year':
-        amount = yearly_price
+        amount_rub = yearly_price
     else:
-        amount = monthly_price * months
+        amount_rub = monthly_price * months
+
+    if amount_rub <= 0:
+        await callback.answer('Ошибка: цена не установлена')
+        return
+
+    amount_cents = int(round(amount_rub * 100))
 
     await callback.bot.send_invoice(
         chat_id=user_id,
@@ -204,7 +209,7 @@ async def process_tariff(callback: types.CallbackQuery):
         payload=f"vpn_{tariff_key}_{user_id}",
         provider_token=PROVIDER_TOKEN,
         currency="RUB",
-        prices=[LabeledPrice(label=tariff_name, amount=int(amount * 100))],
+        prices=[LabeledPrice(label=tariff_name, amount=amount_cents)],
         start_parameter="vpn_subscription"
     )
     await callback.answer()
@@ -212,10 +217,7 @@ async def process_tariff(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data == 'back_to_main')
 async def back_to_main(callback: types.CallbackQuery):
     await callback.message.delete()
-    await callback.message.answer(
-        "Главное меню:",
-        reply_markup=main_keyboard()
-    )
+    await callback.message.answer("Главное меню:", reply_markup=main_keyboard())
     await callback.answer()
 
 @dp.pre_checkout_query()
@@ -285,15 +287,9 @@ async def my_status(message: types.Message):
                 f"Осталось дней: {days_left}"
             )
         else:
-            await message.answer(
-                "Ваша подписка истекла.\n"
-                "Чтобы продлить, нажмите 'Продлить'."
-            )
+            await message.answer("Ваша подписка истекла.\nЧтобы продлить, нажмите 'Продлить'.")
     else:
-        await message.answer(
-            "У вас нет активной подписки.\n"
-            "Нажмите 'Купить подписку', чтобы выбрать тариф."
-        )
+        await message.answer("У вас нет активной подписки.\nНажмите 'Купить подписку', чтобы выбрать тариф.")
 
 @dp.message(lambda message: message.text == 'Инструкция')
 async def instruction(message: types.Message):
@@ -366,7 +362,7 @@ async def admin_panel(message: types.Message):
         text += f"ID: {user_id} | @{username} | {tariff or 'без тарифа'} | {expires_at or '—'} | {status}\n"
     await message.answer(text)
 
-# ---- Flask-сервер для пинга (keep-alive) ----
+# ---- Flask для keep-alive ----
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
@@ -378,7 +374,6 @@ def run_flask():
     port = int(os.environ.get('PORT', 8080))
     flask_app.run(host='0.0.0.0', port=port)
 
-# ---- Запуск бота и веб-сервера параллельно ----
 async def main():
     threading.Thread(target=run_flask, daemon=True).start()
     await dp.start_polling(bot)
