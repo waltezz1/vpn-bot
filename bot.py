@@ -15,9 +15,9 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from flask import Flask
 
 # ---- Настройки (берём из переменных окружения) ----
-API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8887870966:AAFX_TmR8BlbByl1C6ma7WlWiyh11XlM6Ck')
+API_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8746897763:AAENV1b_IJpARUmge3xT6o2GZ-pEko53TqY')
 ADMIN_ID = int(os.environ.get('ADMIN_ID', 6873691042))  # ЗАМЕНИТЕ НА СВОЙ ID
-PROVIDER_TOKEN = os.environ.get('PROVIDER_TOKEN', '390540012:LIVE:99229')  # Токен от @BotFather (для платежей)
+PROVIDER_TOKEN = os.environ.get('PROVIDER_TOKEN', '390540012:LIVE:99276')  # Токен от @BotFather (для платежей)
 
 # ---- Инициализация Firebase ----
 firebase_creds_json = os.environ.get('FIREBASE_CREDENTIALS')
